@@ -1,84 +1,100 @@
-const quoteElement = document.getElementById('quote');
+const wordDisplay = document.getElementById('word-display');
 const inputElement = document.getElementById('input');
-const resultElement = document.getElementById('result');
-const startButton = document.getElementById('start');
 const timerElement = document.getElementById('timer');
+const wpmElement = document.getElementById('wpm');
+const resultElement = document.getElementById('result');
+const restartButton = document.getElementById('restart');
 
-let startTime, endTime, timerInterval;
+let words = [];
+let wordIndex = 0;
+let startTime = 0;
+let timerInterval = null;
+let isGameActive = false;
 
-const quotes = [
-    'The quick brown fox jumps over the lazy dog.',
-    'To be or not to be, that is the question.',
-    'All that glitters is not gold.',
-    'A journey of a thousand miles begins with a single step.',
-    'The only way to do great work is to love what you do.'
-];
+const API_URL = 'https://random-word-api.herokuapp.com/word?number=50';
 
-function getRandomQuote() {
-    return quotes[Math.floor(Math.random() * quotes.length)];
+async function fetchWords() {
+    try {
+        const response = await fetch(API_URL);
+        if (!response.ok) {
+            throw new Error('Failed to fetch words');
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching words:', error);
+        return [];
+    }
 }
 
-function startGame() {
-    const randomQuote = getRandomQuote();
-    quoteElement.textContent = randomQuote;
+function displayWords() {
+    wordDisplay.innerHTML = '';
+    words.forEach((word, index) => {
+        const wordElement = document.createElement('span');
+        wordElement.textContent = word;
+        wordElement.classList.add('word');
+        if (index === wordIndex) {
+            wordElement.classList.add('current');
+        }
+        wordDisplay.appendChild(wordElement);
+    });
+}
+
+async function startGame() {
+    resultElement.textContent = 'Loading words...';
+    words = await fetchWords();
+    
+    if (words.length === 0) {
+        resultElement.textContent = 'Failed to load words. Please try again.';
+        return;
+    }
+
+    wordIndex = 0;
+    startTime = new Date().getTime();
+    isGameActive = true;
+    displayWords();
     inputElement.value = '';
     inputElement.disabled = false;
-    startButton.disabled = true;
-    resultElement.textContent = '';
-    startTime = new Date().getTime();
     inputElement.focus();
-
+    resultElement.textContent = '';
     timerInterval = setInterval(updateTimer, 1000);
 }
 
 function endGame() {
     clearInterval(timerInterval);
-    endTime = new Date().getTime();
+    isGameActive = false;
     inputElement.disabled = true;
-    startButton.disabled = false;
-
-    const timeTaken = (endTime - startTime) / 1000;
-    const wordsTyped = inputElement.value.trim().split(/\s+/).length;
-    const charactersTyped = inputElement.value.length;
-    const wpm = Math.round((wordsTyped / timeTaken) * 60);
-    const accuracy = calculateAccuracy(quoteElement.textContent, inputElement.value);
-
-    resultElement.innerHTML = `
-        Time: ${timeTaken.toFixed(2)}s<br>
-        Speed: ${wpm} WPM<br>
-        Accuracy: ${accuracy}%<br>
-        Characters: ${charactersTyped}
-    `;
+    const totalTime = (new Date().getTime() - startTime) / 1000;
+    const wpm = Math.round((wordIndex / totalTime) * 60);
+    resultElement.textContent = `Game Over! Your speed: ${wpm} WPM`;
 }
 
 function updateTimer() {
-    const currentTime = new Date().getTime();
-    const elapsedTime = Math.floor((currentTime - startTime) / 1000);
-    timerElement.textContent = `Time: ${elapsedTime}s`;
-}
-
-function calculateAccuracy(original, typed) {
-    const originalWords = original.trim().split(/\s+/);
-    const typedWords = typed.trim().split(/\s+/);
-    let correctWords = 0;
-
-    for (let i = 0; i < Math.min(originalWords.length, typedWords.length); i++) {
-        if (originalWords[i] === typedWords[i]) {
-            correctWords++;
-        }
-    }
-
-    return Math.round((correctWords / originalWords.length) * 100);
+    const currentTime = Math.floor((new Date().getTime() - startTime) / 1000);
+    const minutes = Math.floor(currentTime / 60);
+    const seconds = currentTime % 60;
+    timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    const wpm = Math.round((wordIndex / (currentTime / 60)) || 0);
+    wpmElement.textContent = `${wpm} WPM`;
 }
 
 function checkInput() {
-    const currentInput = inputElement.value;
-    const currentQuote = quoteElement.textContent;
+    const currentWord = words[wordIndex];
+    const typedWord = inputElement.value.trim();
 
-    if (currentInput === currentQuote) {
-        endGame();
+    if (typedWord === currentWord) {
+        inputElement.value = '';
+        wordIndex++;
+
+        if (wordIndex === words.length) {
+            endGame();
+        } else {
+            displayWords();
+        }
     }
 }
 
-startButton.addEventListener('click', startGame);
+restartButton.addEventListener('click', startGame);
 inputElement.addEventListener('input', checkInput);
+
+startGame();
