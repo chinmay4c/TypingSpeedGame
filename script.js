@@ -2,14 +2,17 @@ const wordDisplay = document.getElementById('word-display');
 const inputElement = document.getElementById('input');
 const timerElement = document.getElementById('timer');
 const wpmElement = document.getElementById('wpm');
+const accuracyElement = document.getElementById('accuracy');
 const resultElement = document.getElementById('result');
 const restartButton = document.getElementById('restart');
 
 let words = [];
-let wordIndex = 0;
+let currentIndex = 0;
 let startTime = 0;
 let timerInterval = null;
 let isGameActive = false;
+let correctCharacters = 0;
+let totalCharacters = 0;
 
 const API_URL = 'https://random-word-api.herokuapp.com/word?number=50';
 
@@ -27,16 +30,7 @@ async function fetchWords() {
 }
 
 function displayWords() {
-    wordDisplay.innerHTML = '';
-    words.forEach((word, index) => {
-        const wordElement = document.createElement('span');
-        wordElement.textContent = word;
-        wordElement.classList.add('word');
-        if (index === wordIndex) {
-            wordElement.classList.add('current');
-        }
-        wordDisplay.appendChild(wordElement);
-    });
+    wordDisplay.innerHTML = words.map(word => `<span class="word">${word}</span>`).join(' ');
 }
 
 async function startGame() {
@@ -48,9 +42,11 @@ async function startGame() {
         return;
     }
 
-    wordIndex = 0;
+    currentIndex = 0;
     startTime = new Date().getTime();
     isGameActive = true;
+    correctCharacters = 0;
+    totalCharacters = 0;
     displayWords();
     inputElement.value = '';
     inputElement.disabled = false;
@@ -64,8 +60,9 @@ function endGame() {
     isGameActive = false;
     inputElement.disabled = true;
     const totalTime = (new Date().getTime() - startTime) / 1000;
-    const wpm = Math.round((wordIndex / totalTime) * 60);
-    resultElement.textContent = `Game Over! Your speed: ${wpm} WPM`;
+    const wpm = Math.round((correctCharacters / 5 / totalTime) * 60);
+    const accuracy = Math.round((correctCharacters / totalCharacters) * 100) || 100;
+    resultElement.textContent = `Game Over! Your speed: ${wpm} WPM | Accuracy: ${accuracy}%`;
 }
 
 function updateTimer() {
@@ -74,23 +71,40 @@ function updateTimer() {
     const seconds = currentTime % 60;
     timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     
-    const wpm = Math.round((wordIndex / (currentTime / 60)) || 0);
+    const wpm = Math.round((correctCharacters / 5 / (currentTime / 60)) || 0);
     wpmElement.textContent = `${wpm} WPM`;
+
+    const accuracy = Math.round((correctCharacters / totalCharacters) * 100) || 100;
+    accuracyElement.textContent = `${accuracy}%`;
 }
 
 function checkInput() {
-    const currentWord = words[wordIndex];
-    const typedWord = inputElement.value.trim();
+    const typedText = inputElement.value;
+    const originalText = words.join(' ');
+    
+    let correctChars = 0;
+    let html = '';
 
-    if (typedWord === currentWord) {
-        inputElement.value = '';
-        wordIndex++;
-
-        if (wordIndex === words.length) {
-            endGame();
+    for (let i = 0; i < originalText.length; i++) {
+        if (i < typedText.length) {
+            if (typedText[i] === originalText[i]) {
+                html += `<span class="correct">${originalText[i]}</span>`;
+                correctChars++;
+            } else {
+                html += `<span class="incorrect">${originalText[i]}</span>`;
+            }
         } else {
-            displayWords();
+            html += originalText[i];
         }
+    }
+
+    wordDisplay.innerHTML = html;
+    correctCharacters = correctChars;
+    totalCharacters = typedText.length;
+    updateTimer();
+
+    if (typedText.length >= originalText.length) {
+        endGame();
     }
 }
 
