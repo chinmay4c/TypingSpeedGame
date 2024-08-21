@@ -2,6 +2,9 @@
 
 https://chinmay4c.github.io/TypingSpeedGame/
 
+![image](https://github.com/user-attachments/assets/054024a2-9c34-4041-aea3-ad73f2b6464a)
+
+
 1. **Starting a Test**:
    - When you open the page, the test will automatically start after fetching words from the API.
    - If you want to start a new test at any time, click the "Restart" button.
